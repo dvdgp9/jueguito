@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Army Clash - Crowd Runner</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div id="game-container">
+        <canvas id="gameCanvas"></canvas>
+        <div id="ui-overlay">
+            <div id="soldier-count">10</div>
+        </div>
+        <div id="start-screen" class="screen">
+            <h1>⚔️ Army Clash</h1>
+            <p>Pasa por las puertas verdes para multiplicar tu ejército</p>
+            <p>¡Evita las rojas!</p>
+            <button id="start-btn">JUGAR</button>
+        </div>
+        <div id="end-screen" class="screen hidden">
+            <h1 id="end-title">¡Victoria!</h1>
+            <p id="end-message">Has derrotado al enemigo</p>
+            <button id="restart-btn">JUGAR DE NUEVO</button>
+        </div>
+    </div>
+    <script src="js/game.js"></script>
+</body>
+</html>
