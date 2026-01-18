@@ -8,9 +8,10 @@ const game = {
     gameOver: false,
     victory: false,
     level: 1,
-    speed: 3,
+    speed: 5, // Aumentada velocidad base
     distance: 0,
-    levelLength: 3000
+    levelLength: 5000, // Niveles más largos
+    tilt: 0 // Para el efecto de inclinación
 };
 
 // ==================== PLAYER (ARMY) ====================
@@ -21,26 +22,29 @@ const player = {
     soldiers: 10,
     soldierPositions: [],
     laneWidth: 0,
-    color: '#4488ff'
+    color: '#4488ff',
+    bobbing: 0 // Para la animación de correr
 };
 
 // ==================== GATES ====================
 let gates = [];
 const gateTypes = [
-    { op: '+', values: [5, 10, 15, 20], color: '#00cc66', textColor: '#ffffff' },
-    { op: '×', values: [2, 3], color: '#00aa44', textColor: '#ffffff' },
-    { op: '-', values: [5, 10, 15], color: '#cc3333', textColor: '#ffffff' },
-    { op: '÷', values: [2, 3], color: '#aa2222', textColor: '#ffffff' }
+    { op: '+', values: [5, 10, 20, 50], color: '#00cc66' },
+    { op: '×', values: [2, 3, 5], color: '#00aa44' },
+    { op: '-', values: [10, 20, 50], color: '#cc3333' },
+    { op: '÷', values: [2, 3], color: '#aa2222' }
 ];
 
-// ==================== ENEMIES ====================
+// ==================== ENEMIES & OBSTACLES ====================
+let obstacles = [];
 const enemy = {
     x: 0,
     y: 0,
     soldiers: 0,
     soldierPositions: [],
     color: '#ff4444',
-    active: false
+    active: false,
+    distance: 0
 };
 
 // ==================== PARTICLES ====================
@@ -60,7 +64,6 @@ function init() {
     resizeCanvas();
     window.addEventListener('resize', resizeCanvas);
     
-    // Mouse/Touch events
     game.canvas.addEventListener('mousedown', onPointerDown);
     game.canvas.addEventListener('mousemove', onPointerMove);
     game.canvas.addEventListener('mouseup', onPointerUp);
@@ -68,11 +71,9 @@ function init() {
     game.canvas.addEventListener('touchmove', onTouchMove, { passive: false });
     game.canvas.addEventListener('touchend', onPointerUp);
     
-    // Buttons
     document.getElementById('start-btn').addEventListener('click', startGame);
     document.getElementById('restart-btn').addEventListener('click', startGame);
     
-    // Initial render
     render();
 }
 
@@ -82,10 +83,10 @@ function resizeCanvas() {
     game.canvas.width = game.width;
     game.canvas.height = game.height;
     
-    player.laneWidth = Math.min(game.width * 0.7, 400);
+    player.laneWidth = Math.min(game.width * 0.8, 500);
     player.x = game.width / 2;
     player.targetX = game.width / 2;
-    player.y = game.height * 0.75;
+    player.y = game.height * 0.85; // Jugador más abajo
     
     if (!game.running) render();
 }
@@ -99,8 +100,8 @@ function startGame() {
     game.gameOver = false;
     game.victory = false;
     game.distance = 0;
-    game.speed = 3 + (game.level - 1) * 0.5;
-    game.levelLength = 3000 + (game.level - 1) * 500;
+    game.speed = 5 + (game.level - 1) * 0.5;
+    game.levelLength = 5000 + (game.level - 1) * 1000;
     
     player.soldiers = 10;
     player.x = game.width / 2;
@@ -108,11 +109,13 @@ function startGame() {
     generateSoldierPositions(player);
     
     enemy.active = false;
-    enemy.soldiers = 20 + game.level * 10;
+    enemy.distance = game.levelLength;
+    enemy.soldiers = 30 + game.level * 20;
     generateSoldierPositions(enemy);
     
     gates = [];
-    generateGates();
+    obstacles = [];
+    generateLevelContent();
     particles = [];
     
     updateSoldierCount();
@@ -139,58 +142,70 @@ function endGame(victory) {
         endScreen.classList.add('defeat');
         endTitle.textContent = '¡DERROTA!';
         endMessage.textContent = 'Tu ejército ha sido destruido';
-        game.level = 1;
+        // game.level = 1; // Mantener nivel o reiniciar según prefieras
     }
 }
 
-// ==================== GATE GENERATION ====================
-function generateGates() {
-    const gateSpacing = 400;
-    const numGates = Math.floor((game.levelLength - 500) / gateSpacing);
+// ==================== LEVEL GENERATION ====================
+function generateLevelContent() {
+    const spacing = 600;
+    const numSteps = Math.floor((game.levelLength - 1000) / spacing);
     
-    for (let i = 0; i < numGates; i++) {
-        const distance = 500 + i * gateSpacing;
-        const leftType = gateTypes[Math.floor(Math.random() * gateTypes.length)];
-        const rightType = gateTypes[Math.floor(Math.random() * gateTypes.length)];
+    for (let i = 0; i < numSteps; i++) {
+        const dist = 800 + i * spacing;
         
-        // Ensure at least one good option most of the time
-        const leftGood = leftType.op === '+' || leftType.op === '×';
-        const rightGood = rightType.op === '+' || rightType.op === '×';
-        
-        let finalLeft = leftType;
-        let finalRight = rightType;
-        
-        if (!leftGood && !rightGood && Math.random() > 0.3) {
+        // Alternar entre puertas y obstáculos/enemigos intermedios
+        if (i % 2 === 0) {
+            // Puertas
+            const leftType = gateTypes[Math.floor(Math.random() * gateTypes.length)];
+            const rightType = gateTypes[Math.floor(Math.random() * gateTypes.length)];
+            
+            const leftValue = leftType.values[Math.floor(Math.random() * leftType.values.length)];
+            const rightValue = rightType.values[Math.floor(Math.random() * rightType.values.length)];
+            
+            gates.push({
+                distance: dist,
+                left: { op: leftType.op, value: leftValue, color: leftType.color },
+                right: { op: rightType.op, value: rightValue, color: rightType.color },
+                passed: false
+            });
+        } else {
+            // Obstáculo o pequeño grupo enemigo
             if (Math.random() > 0.5) {
-                finalLeft = gateTypes[Math.floor(Math.random() * 2)];
+                obstacles.push({
+                    distance: dist,
+                    type: 'wall',
+                    x: (Math.random() - 0.5) * player.laneWidth,
+                    width: 100,
+                    damage: 5 + Math.floor(Math.random() * 10),
+                    hit: false
+                });
             } else {
-                finalRight = gateTypes[Math.floor(Math.random() * 2)];
+                obstacles.push({
+                    distance: dist,
+                    type: 'mid-enemy',
+                    x: (Math.random() - 0.5) * player.laneWidth,
+                    soldiers: 5 + Math.floor(Math.random() * 15),
+                    hit: false
+                });
             }
         }
-        
-        const leftValue = finalLeft.values[Math.floor(Math.random() * finalLeft.values.length)];
-        const rightValue = finalRight.values[Math.floor(Math.random() * finalRight.values.length)];
-        
-        gates.push({
-            distance: distance,
-            left: { op: finalLeft.op, value: leftValue, color: finalLeft.color },
-            right: { op: finalRight.op, value: rightValue, color: finalRight.color },
-            passed: false
-        });
     }
 }
 
 // ==================== SOLDIER POSITIONS ====================
 function generateSoldierPositions(entity) {
     entity.soldierPositions = [];
-    const count = Math.min(entity.soldiers, 200);
+    const count = Math.min(entity.soldiers, 150); // Límite visual
     
     for (let i = 0; i < count; i++) {
         const angle = Math.random() * Math.PI * 2;
-        const radius = Math.random() * Math.min(30 + count * 0.5, 80);
+        // Forma de círculo/enjambre
+        const radius = Math.sqrt(Math.random()) * Math.min(20 + count * 0.8, 100);
         entity.soldierPositions.push({
             offsetX: Math.cos(angle) * radius,
-            offsetY: Math.sin(angle) * radius * 0.5
+            offsetY: Math.sin(angle) * radius * 0.6,
+            phase: Math.random() * Math.PI * 2 // Para animación individual
         });
     }
 }
@@ -203,17 +218,21 @@ function onPointerDown(e) {
 
 function onPointerMove(e) {
     if (input.isDown && game.running) {
-        const deltaX = e.clientX - input.mouseX;
+        const deltaX = (e.clientX - input.mouseX) * 1.5;
         player.targetX = Math.max(
             game.width / 2 - player.laneWidth / 2,
             Math.min(game.width / 2 + player.laneWidth / 2, player.targetX + deltaX)
         );
         input.mouseX = e.clientX;
+        
+        // Efecto tilt
+        game.tilt = (e.clientX - game.width/2) / (game.width/2) * 0.1;
     }
 }
 
 function onPointerUp() {
     input.isDown = false;
+    game.tilt *= 0.5;
 }
 
 function onTouchStart(e) {
@@ -225,142 +244,276 @@ function onTouchStart(e) {
 function onTouchMove(e) {
     e.preventDefault();
     if (input.isDown && game.running) {
-        const deltaX = e.touches[0].clientX - input.mouseX;
+        const deltaX = (e.touches[0].clientX - input.mouseX) * 1.5;
         player.targetX = Math.max(
             game.width / 2 - player.laneWidth / 2,
             Math.min(game.width / 2 + player.laneWidth / 2, player.targetX + deltaX)
         );
         input.mouseX = e.touches[0].clientX;
+        game.tilt = (e.touches[0].clientX - game.width/2) / (game.width/2) * 0.1;
     }
 }
 
 // ==================== GAME LOOP ====================
 function gameLoop() {
     if (!game.running) return;
-    
     update();
     render();
-    
     requestAnimationFrame(gameLoop);
 }
 
 function update() {
-    // Move player smoothly
-    player.x += (player.targetX - player.x) * 0.15;
-    
-    // Progress through level
+    player.x += (player.targetX - player.x) * 0.2;
     game.distance += game.speed;
+    player.bobbing += 0.2;
     
-    // Check gate collisions
-    checkGateCollisions();
+    // Inclinación vuelve a 0 suavemente
+    if (!input.isDown) game.tilt *= 0.9;
     
-    // Check if reached end of level
-    if (game.distance >= game.levelLength && !enemy.active) {
+    checkCollisions();
+    
+    // Batalla final
+    if (game.distance >= enemy.distance - 200) {
         enemy.active = true;
         enemy.x = game.width / 2;
-        enemy.y = -100;
-    }
-    
-    // Enemy battle
-    if (enemy.active) {
-        enemy.y += 5;
-        if (enemy.y >= player.y - 100) {
+        enemy.y = game.height * 0.2; // Aparece arriba
+        
+        if (game.distance >= enemy.distance) {
             doBattle();
         }
     }
     
-    // Update particles
     updateParticles();
-    
-    // Check defeat
-    if (player.soldiers <= 0) {
-        endGame(false);
-    }
+    if (player.soldiers <= 0) endGame(false);
 }
 
-function checkGateCollisions() {
-    const playerProgress = game.distance;
-    const gateZoneStart = player.y - 50;
-    const gateZoneEnd = player.y + 50;
-    
+function checkCollisions() {
+    // Puertas
     for (const gate of gates) {
-        if (gate.passed) continue;
-        
-        const gateScreenY = game.height - (gate.distance - playerProgress) * 0.5;
-        
-        if (gateScreenY > gateZoneStart && gateScreenY < gateZoneEnd) {
+        if (!gate.passed && Math.abs(game.distance - gate.distance) < 20) {
             gate.passed = true;
-            
-            // Determine which side player is on
             const isLeft = player.x < game.width / 2;
-            const chosenGate = isLeft ? gate.left : gate.right;
-            
-            applyGateEffect(chosenGate);
+            applyGateEffect(isLeft ? gate.left : gate.right);
+        }
+    }
+    
+    // Obstáculos
+    for (const obs of obstacles) {
+        if (!obs.hit && Math.abs(game.distance - obs.distance) < 30) {
+            const playerRelX = player.x - game.width / 2;
+            if (Math.abs(playerRelX - obs.x) < 60) {
+                obs.hit = true;
+                if (obs.type === 'wall') {
+                    player.soldiers -= obs.damage;
+                    spawnParticles(player.x, player.y, '#ff4444', 15);
+                } else {
+                    // mid-enemy: batalla rápida
+                    const loss = Math.min(player.soldiers, obs.soldiers);
+                    player.soldiers -= loss;
+                    spawnParticles(player.x, player.y, '#ffaa00', 10);
+                }
+                player.soldiers = Math.max(0, player.soldiers);
+                generateSoldierPositions(player);
+                updateSoldierCount();
+            }
         }
     }
 }
 
 function applyGateEffect(gate) {
     const oldCount = player.soldiers;
-    
     switch (gate.op) {
-        case '+':
-            player.soldiers += gate.value;
-            break;
-        case '-':
-            player.soldiers -= gate.value;
-            break;
-        case '×':
-            player.soldiers = Math.floor(player.soldiers * gate.value);
-            break;
-        case '÷':
-            player.soldiers = Math.floor(player.soldiers / gate.value);
-            break;
+        case '+': player.soldiers += gate.value; break;
+        case '-': player.soldiers -= gate.value; break;
+        case '×': player.soldiers *= gate.value; break;
+        case '÷': player.soldiers = Math.floor(player.soldiers / gate.value); break;
     }
-    
     player.soldiers = Math.max(0, player.soldiers);
-    
-    // Spawn particles
-    const isPositive = player.soldiers > oldCount;
-    spawnParticles(player.x, player.y, isPositive ? '#00ff88' : '#ff4444', 20);
-    
+    spawnParticles(player.x, player.y, player.soldiers > oldCount ? '#00ff88' : '#ff4444', 20);
     generateSoldierPositions(player);
     updateSoldierCount();
 }
 
 function doBattle() {
-    // Both armies lose soldiers each frame
-    const damage = Math.min(player.soldiers, enemy.soldiers, 1);
+    const damage = 1;
     player.soldiers -= damage;
     enemy.soldiers -= damage;
     
-    if (enemy.soldiers > 0 && player.soldiers > 0) {
-        spawnParticles(player.x, player.y - 50, '#ffaa00', 3);
-    }
+    if (Math.random() > 0.7) spawnParticles(player.x, player.y - 50, '#ffaa00', 2);
     
     generateSoldierPositions(player);
     generateSoldierPositions(enemy);
     updateSoldierCount();
     
-    if (enemy.soldiers <= 0 && player.soldiers > 0) {
-        spawnParticles(enemy.x, enemy.y, '#00ff88', 50);
-        endGame(true);
-    } else if (player.soldiers <= 0) {
-        endGame(false);
+    if (enemy.soldiers <= 0) endGame(true);
+    else if (player.soldiers <= 0) endGame(false);
+}
+
+// ==================== RENDERING ====================
+function render() {
+    const ctx = game.ctx;
+    ctx.clearRect(0, 0, game.width, game.height);
+    
+    // Sky
+    const grad = ctx.createLinearGradient(0, 0, 0, game.height);
+    grad.addColorStop(0, '#1a1a2e');
+    grad.addColorStop(0.5, '#16213e');
+    grad.addColorStop(1, '#0f3460');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, game.width, game.height);
+    
+    // Perspective Setup
+    const horizonY = game.height * 0.3;
+    
+    drawTrack(ctx, horizonY);
+    
+    // Renderizado ordenado por distancia (Z-index manual)
+    const objects = [
+        ...gates.filter(g => !g.passed).map(g => ({ type: 'gate', obj: g, dist: g.distance })),
+        ...obstacles.filter(o => !o.hit).map(o => ({ type: 'obstacle', obj: o, dist: o.distance }))
+    ];
+    
+    // El enemigo final también es un objeto
+    if (enemy.active) objects.push({ type: 'enemy', obj: enemy, dist: enemy.distance });
+    
+    // Dibujar objetos desde lejos a cerca
+    objects.sort((a, b) => b.dist - a.dist);
+    
+    for (const item of objects) {
+        const relDist = item.dist - game.distance;
+        if (relDist < 0 || relDist > 2000) continue;
+        
+        const t = 1 - (relDist / 2000); // 0 en el horizonte, 1 en la cámara
+        const y = horizonY + (game.height - horizonY) * t * t; // Curva parabólica para profundidad
+        const scale = 0.1 + 0.9 * t * t;
+        const x = game.width / 2 + (item.obj.x || 0) * scale;
+        
+        if (item.type === 'gate') drawGate(ctx, item.obj, y, scale);
+        else if (item.type === 'obstacle') drawObstacle(ctx, item.obj, y, scale);
+        else if (item.type === 'enemy') drawArmy(ctx, game.width/2, y, enemy, '#ff4444', scale);
+    }
+    
+    // Player siempre al frente
+    drawArmy(ctx, player.x, player.y, player, '#4488ff', 1);
+    drawParticles(ctx);
+}
+
+function drawTrack(ctx, horizonY) {
+    const centerX = game.width / 2;
+    const trackWidth = player.laneWidth + 200;
+    
+    ctx.save();
+    ctx.translate(centerX, 0);
+    ctx.rotate(game.tilt);
+    ctx.translate(-centerX, 0);
+    
+    // Pista
+    ctx.fillStyle = '#333';
+    ctx.beginPath();
+    ctx.moveTo(centerX - trackWidth/2, game.height);
+    ctx.lineTo(centerX + trackWidth/2, game.height);
+    ctx.lineTo(centerX + 20, horizonY);
+    ctx.lineTo(centerX - 20, horizonY);
+    ctx.fill();
+    
+    // Barreras
+    const numMarkers = 20;
+    for (let i = 0; i < numMarkers; i++) {
+        const t = (i + (game.distance % 100) / 100) / numMarkers;
+        const y = horizonY + (game.height - horizonY) * t * t;
+        const scale = t * t;
+        const xOffset = (trackWidth/2) * scale;
+        
+        ctx.fillStyle = i % 2 === 0 ? '#ffd700' : '#ffaa00';
+        ctx.beginPath();
+        ctx.arc(centerX - xOffset, y, 15 * scale, 0, Math.PI*2);
+        ctx.arc(centerX + xOffset, y, 15 * scale, 0, Math.PI*2);
+        ctx.fill();
+    }
+    ctx.restore();
+}
+
+function drawGate(ctx, gate, y, scale) {
+    const w = player.laneWidth * 0.4 * scale;
+    const h = 120 * scale;
+    const centerX = game.width / 2;
+    
+    // Left
+    drawSingleGate(ctx, centerX - w - 5*scale, y, w, h, gate.left);
+    // Right
+    drawSingleGate(ctx, centerX + 5*scale, y, w, h, gate.right);
+}
+
+function drawSingleGate(ctx, x, y, w, h, data) {
+    ctx.fillStyle = data.color;
+    ctx.globalAlpha = 0.8;
+    ctx.beginPath();
+    ctx.roundRect(x, y - h, w, h, 10);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    
+    ctx.fillStyle = 'white';
+    ctx.font = `bold ${h * 0.4}px Arial`;
+    ctx.textAlign = 'center';
+    ctx.fillText(`${data.op}${data.value}`, x + w/2, y - h/2);
+}
+
+function drawObstacle(ctx, obs, y, scale) {
+    const x = game.width / 2 + obs.x * scale;
+    const w = obs.width * scale;
+    const h = 50 * scale;
+    
+    ctx.fillStyle = obs.type === 'wall' ? '#555' : '#ff4444';
+    ctx.beginPath();
+    ctx.roundRect(x - w/2, y - h, w, h, 5);
+    ctx.fill();
+    
+    if (obs.type === 'mid-enemy') {
+        ctx.fillStyle = 'white';
+        ctx.font = `bold ${h * 0.6}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.fillText(obs.soldiers, x, y - h/2);
     }
 }
 
-// ==================== PARTICLES ====================
+function drawArmy(ctx, x, y, entity, color, scale) {
+    const count = Math.min(entity.soldiers, entity.soldierPositions.length);
+    const bob = Math.sin(player.bobbing) * 3 * scale;
+    
+    for (let i = 0; i < count; i++) {
+        const p = entity.soldierPositions[i];
+        const sBob = Math.sin(player.bobbing + p.phase) * 2 * scale;
+        const sx = x + p.offsetX * scale;
+        const sy = y + p.offsetY * scale + sBob;
+        const size = 6 * scale;
+        
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.arc(sx, sy, size, 0, Math.PI*2);
+        ctx.fill();
+        
+        ctx.fillStyle = '#ffcc99';
+        ctx.beginPath();
+        ctx.arc(sx, sy - size, size * 0.6, 0, Math.PI*2);
+        ctx.fill();
+    }
+    
+    // Count bubble
+    if (entity.soldiers > 0) {
+        ctx.fillStyle = 'white';
+        ctx.font = `bold ${20 * scale}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.fillText(entity.soldiers, x, y - 50 * scale);
+    }
+}
+
 function spawnParticles(x, y, color, count) {
     for (let i = 0; i < count; i++) {
         particles.push({
-            x: x + (Math.random() - 0.5) * 50,
-            y: y + (Math.random() - 0.5) * 30,
-            vx: (Math.random() - 0.5) * 10,
-            vy: (Math.random() - 0.5) * 10 - 3,
-            life: 1,
-            color: color,
-            size: 3 + Math.random() * 5
+            x, y, 
+            vx: (Math.random() - 0.5) * 10, 
+            vy: (Math.random() - 0.5) * 10,
+            life: 1, color, size: 2 + Math.random() * 4
         });
     }
 }
@@ -368,190 +521,8 @@ function spawnParticles(x, y, color, count) {
 function updateParticles() {
     for (let i = particles.length - 1; i >= 0; i--) {
         const p = particles[i];
-        p.x += p.vx;
-        p.y += p.vy;
-        p.vy += 0.2;
-        p.life -= 0.02;
-        
-        if (p.life <= 0) {
-            particles.splice(i, 1);
-        }
-    }
-}
-
-// ==================== RENDERING ====================
-function render() {
-    const ctx = game.ctx;
-    
-    // Sky gradient
-    const skyGradient = ctx.createLinearGradient(0, 0, 0, game.height);
-    skyGradient.addColorStop(0, '#87CEEB');
-    skyGradient.addColorStop(1, '#4AA3DF');
-    ctx.fillStyle = skyGradient;
-    ctx.fillRect(0, 0, game.width, game.height);
-    
-    // Draw track with perspective
-    drawTrack(ctx);
-    
-    // Draw gates
-    drawGates(ctx);
-    
-    // Draw enemy
-    if (enemy.active) {
-        drawArmy(ctx, enemy.x, enemy.y, enemy, '#ff4444', '#cc0000');
-    }
-    
-    // Draw player army
-    drawArmy(ctx, player.x, player.y, player, '#4488ff', '#2266cc');
-    
-    // Draw particles
-    drawParticles(ctx);
-}
-
-function drawTrack(ctx) {
-    const trackWidth = player.laneWidth + 100;
-    const centerX = game.width / 2;
-    
-    // Track perspective points
-    const nearWidth = trackWidth;
-    const farWidth = trackWidth * 0.3;
-    const horizonY = game.height * 0.2;
-    
-    // Main track
-    ctx.fillStyle = '#555555';
-    ctx.beginPath();
-    ctx.moveTo(centerX - nearWidth / 2, game.height);
-    ctx.lineTo(centerX + nearWidth / 2, game.height);
-    ctx.lineTo(centerX + farWidth / 2, horizonY);
-    ctx.lineTo(centerX - farWidth / 2, horizonY);
-    ctx.closePath();
-    ctx.fill();
-    
-    // Track lines
-    ctx.strokeStyle = '#ffffff';
-    ctx.lineWidth = 3;
-    
-    // Left barrier (yellow balls like in the image)
-    drawBarrier(ctx, centerX - trackWidth / 2, '#FFD700', -1);
-    
-    // Right barrier (blue like in the image)
-    drawBarrier(ctx, centerX + trackWidth / 2, '#4444ff', 1);
-    
-    // Center divider
-    ctx.strokeStyle = '#ffffff';
-    ctx.setLineDash([20, 20]);
-    ctx.beginPath();
-    ctx.moveTo(centerX, game.height);
-    ctx.lineTo(centerX, horizonY);
-    ctx.stroke();
-    ctx.setLineDash([]);
-}
-
-function drawBarrier(ctx, baseX, color, side) {
-    const horizonY = game.height * 0.2;
-    const numBalls = 15;
-    
-    for (let i = 0; i < numBalls; i++) {
-        const t = i / numBalls;
-        const y = game.height - (game.height - horizonY) * t;
-        const x = baseX + (game.width / 2 - baseX) * t * 0.7;
-        const size = 20 * (1 - t * 0.7);
-        
-        // Ball with gradient for 3D effect
-        const gradient = ctx.createRadialGradient(x - size * 0.3, y - size * 0.3, 0, x, y, size);
-        gradient.addColorStop(0, lightenColor(color, 50));
-        gradient.addColorStop(1, color);
-        
-        ctx.fillStyle = gradient;
-        ctx.beginPath();
-        ctx.arc(x, y, size, 0, Math.PI * 2);
-        ctx.fill();
-    }
-}
-
-function drawGates(ctx) {
-    const playerProgress = game.distance;
-    const horizonY = game.height * 0.2;
-    
-    for (const gate of gates) {
-        if (gate.passed) continue;
-        
-        const relativeDistance = gate.distance - playerProgress;
-        if (relativeDistance < 0 || relativeDistance > 1500) continue;
-        
-        const t = relativeDistance / 1500;
-        const y = game.height - (game.height - horizonY) * (1 - t) * 0.8;
-        const scale = 1 - t * 0.7;
-        
-        if (scale < 0.1) continue;
-        
-        const gateWidth = player.laneWidth * 0.45 * scale;
-        const gateHeight = 80 * scale;
-        const centerX = game.width / 2;
-        
-        // Left gate
-        drawSingleGate(ctx, centerX - gateWidth - 10 * scale, y, gateWidth, gateHeight, gate.left);
-        
-        // Right gate
-        drawSingleGate(ctx, centerX + 10 * scale, y, gateWidth, gateHeight, gate.right);
-    }
-}
-
-function drawSingleGate(ctx, x, y, width, height, gateData) {
-    // Gate background
-    ctx.fillStyle = gateData.color;
-    ctx.beginPath();
-    ctx.roundRect(x, y - height, width, height, 10);
-    ctx.fill();
-    
-    // Gate border
-    ctx.strokeStyle = lightenColor(gateData.color, 30);
-    ctx.lineWidth = 3;
-    ctx.stroke();
-    
-    // Gate text
-    ctx.fillStyle = '#ffffff';
-    ctx.font = `bold ${height * 0.5}px Arial`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(`${gateData.op}${gateData.value}`, x + width / 2, y - height / 2);
-}
-
-function drawArmy(ctx, x, y, entity, color, darkColor) {
-    const count = Math.min(entity.soldiers, entity.soldierPositions.length);
-    
-    for (let i = 0; i < count; i++) {
-        const pos = entity.soldierPositions[i];
-        const soldierX = x + pos.offsetX;
-        const soldierY = y + pos.offsetY;
-        const size = 8;
-        
-        // Body
-        ctx.fillStyle = color;
-        ctx.beginPath();
-        ctx.arc(soldierX, soldierY, size, 0, Math.PI * 2);
-        ctx.fill();
-        
-        // Head
-        ctx.fillStyle = '#ffcc99';
-        ctx.beginPath();
-        ctx.arc(soldierX, soldierY - size * 0.8, size * 0.5, 0, Math.PI * 2);
-        ctx.fill();
-    }
-    
-    // Army count bubble
-    if (entity.soldiers > 0) {
-        const bubbleY = y - 60;
-        ctx.fillStyle = 'rgba(0,0,0,0.7)';
-        ctx.beginPath();
-        ctx.roundRect(x - 30, bubbleY - 15, 60, 30, 15);
-        ctx.fill();
-        
-        ctx.fillStyle = '#ffffff';
-        ctx.font = 'bold 20px Arial';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(entity.soldiers.toString(), x, bubbleY);
+        p.x += p.vx; p.y += p.vy; p.life -= 0.03;
+        if (p.life <= 0) particles.splice(i, 1);
     }
 }
 
@@ -560,24 +531,15 @@ function drawParticles(ctx) {
         ctx.globalAlpha = p.life;
         ctx.fillStyle = p.color;
         ctx.beginPath();
-        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI*2);
         ctx.fill();
     }
     ctx.globalAlpha = 1;
 }
 
-// ==================== UTILITIES ====================
 function updateSoldierCount() {
     document.getElementById('soldier-count').textContent = player.soldiers;
 }
 
-function lightenColor(color, amount) {
-    const hex = color.replace('#', '');
-    const r = Math.min(255, parseInt(hex.substr(0, 2), 16) + amount);
-    const g = Math.min(255, parseInt(hex.substr(2, 2), 16) + amount);
-    const b = Math.min(255, parseInt(hex.substr(4, 2), 16) + amount);
-    return `rgb(${r},${g},${b})`;
-}
-
-// ==================== START ====================
 window.addEventListener('load', init);
+

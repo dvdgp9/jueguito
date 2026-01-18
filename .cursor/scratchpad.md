@@ -57,71 +57,43 @@ jueguito/
 └── README.md           # Instrucciones de uso
 ```
 
-## High-level Task Breakdown
+## High-level Task Breakdown (V2: Mejoras Pro)
 
-### Fase 1: Setup básico
-- [ ] **Task 1.1**: Crear estructura HTML + Canvas responsive
-  - *Criterio de éxito*: Canvas visible a pantalla completa, responsive
-- [ ] **Task 1.2**: Implementar game loop básico (60 FPS)
-  - *Criterio de éxito*: Loop corriendo, se puede dibujar un rectángulo que se mueve
+### Fase 5: Refactor de Perspectiva y Cámara
+- [ ] **Task 5.1**: Invertir renderizado (objetos vienen del horizonte arriba)
+  - *Criterio de éxito*: Las puertas aparecen pequeñas en el horizonte y crecen al acercarse
+- [ ] **Task 5.2**: Efecto de inclinación de cámara (Tilt) al mover el ejército
+  - *Criterio de éxito*: La pista se inclina ligeramente según el movimiento lateral
 
-### Fase 2: Mecánicas core
-- [ ] **Task 2.1**: Crear sistema de "pista" con perspectiva (el camino)
-  - *Criterio de éxito*: Se ve un camino que simula profundidad
-- [ ] **Task 2.2**: Implementar ejército del jugador (grupo de soldados)
-  - *Criterio de éxito*: Grupo de círculos/sprites que se mueven juntos, controlables con touch/mouse
-- [ ] **Task 2.3**: Sistema de puertas con operaciones matemáticas
-  - *Criterio de éxito*: Puertas visibles, detectan colisión, aplican operación (+, -, x, ÷)
-- [ ] **Task 2.4**: Contador visual de soldados
-  - *Criterio de éxito*: Número grande visible que se actualiza en tiempo real
+### Fase 6: Variedad de Obstáculos y Enemigos
+- [ ] **Task 6.1**: Obstáculos físicos (muros, sierras)
+  - *Criterio de éxito*: Obstáculos que restan soldados directamente si los tocas
+- [ ] **Task 6.2**: Enemigos intermedios
+  - *Criterio de éxito*: Pequeños grupos enemigos durante el trayecto, no solo al final
 
-### Fase 3: Batalla y progresión
-- [ ] **Task 3.1**: Enemigos al final del nivel
-  - *Criterio de éxito*: Grupo enemigo visible con su contador
-- [ ] **Task 3.2**: Sistema de batalla (colisión = resta mutua)
-  - *Criterio de éxito*: Al chocar, ambos ejércitos pierden soldados, gana quien tenga más
-- [ ] **Task 3.3**: Pantalla de victoria/derrota
-  - *Criterio de éxito*: Mensaje claro de resultado, botón para reiniciar
-
-### Fase 4: Polish y deploy
-- [ ] **Task 4.1**: Efectos visuales (partículas, animaciones)
-  - *Criterio de éxito*: Feedback visual al pasar puertas y en batalla
-- [ ] **Task 4.2**: Sonidos básicos (opcional)
-  - *Criterio de éxito*: Sonido al multiplicar, al batallar
-- [ ] **Task 4.3**: Deploy a cPanel
-  - *Criterio de éxito*: Juego accesible desde el dominio del usuario
+### Fase 7: Polish Visual
+- [ ] **Task 7.1**: Animación de "bobbing" (salto) para los soldados al correr
+  - *Criterio de éxito*: Los soldados parecen estar corriendo/saltando
+- [ ] **Task 7.2**: Fondo dinámico (nubes o mar en movimiento)
+  - *Criterio de éxito*: El fondo tiene movimiento para aumentar la sensación de velocidad
 
 ## Project Status Board
 
 ### To Do
-- [ ] Task 1.1: Estructura HTML + Canvas
-- [ ] Task 1.2: Game loop
-- [ ] Task 2.1: Sistema de pista
-- [ ] Task 2.2: Ejército del jugador
-- [ ] Task 2.3: Sistema de puertas
-- [ ] Task 2.4: Contador visual
-- [ ] Task 3.1: Enemigos
-- [ ] Task 3.2: Sistema de batalla
-- [ ] Task 3.3: Victoria/derrota
-- [ ] Task 4.1: Efectos visuales
-- [ ] Task 4.2: Sonidos
-- [ ] Task 4.3: Deploy a cPanel
+- [ ] Task 5.1: Invertir renderizado
+- [ ] Task 5.2: Efecto Tilt cámara
+- [ ] Task 6.1: Obstáculos físicos
+- [ ] Task 6.2: Enemigos intermedios
+- [ ] Task 7.1: Animación soldados
+- [ ] Task 7.2: Fondo dinámico
 
 ### In Progress
-- [ ] Task 4.2: Sonidos (opcional)
-- [ ] Task 4.3: Deploy a cPanel
+(ninguno)
 
 ### Done
-- [x] Task 1.1: Estructura HTML + Canvas
-- [x] Task 1.2: Game loop
-- [x] Task 2.1: Sistema de pista con perspectiva
-- [x] Task 2.2: Ejército del jugador
-- [x] Task 2.3: Sistema de puertas
-- [x] Task 2.4: Contador visual
-- [x] Task 3.1: Enemigos
-- [x] Task 3.2: Sistema de batalla
-- [x] Task 3.3: Victoria/derrota
-- [x] Task 4.1: Efectos visuales (partículas)
+- [x] Task 1.1 a 4.1: Versión base funcional
+- [x] Git Init & Push inicial
+
 
 ## Executor's Feedback or Assistance Requests
 
